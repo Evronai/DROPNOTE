@@ -151,6 +151,9 @@
   .sv-accent{color:var(--accent)!important;}
   .sv-warn{color:var(--gold)!important;}
 
+  .qr-upload-zone{border:1px dashed var(--border2);background:var(--off-white);padding:24px 16px;text-align:center;cursor:pointer;transition:all .15s;margin:0 auto;max-width:320px;}
+  .qr-upload-zone:hover{border-color:var(--accent);background:#f0f4ff;}
+
   .scanner-wrap{position:relative;background:#000;overflow:hidden;}
   .scanner-wrap video{width:100%;display:block;max-height:300px;object-fit:cover;}
   .scanner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
@@ -449,15 +452,36 @@
           </div>
           <div class="scanner-hint" id="scannerHint" style="display:none">Align the QR within the frame</div>
           <div class="card-body" id="scanPrompt">
-            <div style="text-align:center;padding:16px 0">
-              <div style="font-size:36px;margin-bottom:14px">📷</div>
-              <p style="font-size:13px;color:var(--text2);margin-bottom:18px">Camera is processed locally.<br>Nothing is uploaded or stored.</p>
-              <button class="action-btn" onclick="startScanner()" style="max-width:260px;margin:0 auto">Open Camera</button>
-              <div style="margin:14px 0;font-size:11px;color:var(--muted)">— or paste payload directly —</div>
+            <div style="padding:16px 0">
+
+              <!-- HTTPS warning banner -->
+              <div id="httpsWarning" style="display:none;margin-bottom:16px;padding:12px 14px;background:#fff8e6;border-left:3px solid var(--gold);font-size:11px;color:var(--text2);line-height:1.7">
+                <strong style="color:var(--navy)">⚠ Camera requires HTTPS.</strong> You're opening this file directly from disk (<code style="background:var(--light);padding:1px 4px">file://</code>). Browsers block camera access unless the page is served over <code style="background:var(--light);padding:1px 4px">https://</code> or <code style="background:var(--light);padding:1px 4px">localhost</code>.<br><br>
+                <strong>Use the image upload below instead</strong> — save your QR as a PNG and upload it here. Works everywhere, no camera needed.
+              </div>
+
+              <!-- Camera button -->
+              <div style="text-align:center;margin-bottom:16px">
+                <button class="action-btn" onclick="startScanner()" id="cameraBtn" style="max-width:260px;margin:0 auto">📷 Open Camera</button>
+              </div>
+
+              <div style="text-align:center;font-size:11px;color:var(--muted);margin:0 0 14px">— or upload QR image (works everywhere) —</div>
+
+              <!-- File upload — always works -->
+              <div class="qr-upload-zone" id="qrUploadZone" onclick="document.getElementById('qrFileInput').click()">
+                <input type="file" id="qrFileInput" accept="image/*" style="display:none" onchange="handleQRUpload(this)">
+                <div style="font-size:28px;margin-bottom:8px">🖼️</div>
+                <div style="font-size:13px;font-weight:500;color:var(--navy);margin-bottom:4px">Upload QR Image</div>
+                <div style="font-size:11px;color:var(--muted)">PNG, JPG, or screenshot — tap to choose</div>
+              </div>
+
+              <div style="text-align:center;margin:14px 0;font-size:11px;color:var(--muted)">— or paste payload text directly —</div>
+
               <div style="display:flex;gap:8px;max-width:340px;margin:0 auto">
-                <textarea class="form-input" id="pasteInput" placeholder="Paste DNv1:… payload here" rows="2" style="min-height:unset;font-size:11px;font-family:monospace;resize:none"></textarea>
+                <textarea class="form-input" id="pasteInput" placeholder="Paste DNv1|… payload here" rows="2" style="min-height:unset;font-size:11px;font-family:monospace;resize:none"></textarea>
                 <button class="action-btn" onclick="handlePaste()" style="width:auto;padding:10px 14px;flex-shrink:0;align-self:stretch">Go</button>
               </div>
+
             </div>
           </div>
         </div>
@@ -612,7 +636,7 @@ async function decryptMsg(enc, pin) {
 
 // ══════════════════════════════════════
 // PAYLOAD FORMAT
-// DNv1:[id]:[expiresAt]:[salt]:[iv]:[ct]
+// DNv1|[id]|[expiresAt]|[salt]|[iv]|[ct]
 // Use indexOf-based parsing so colons inside fields never break it
 // ══════════════════════════════════════
 function buildPayload(id, expiresAt, enc) {
@@ -947,6 +971,35 @@ function stopScanner() {
   const p=document.getElementById('scanPrompt');if(p)p.style.display='block';
 }
 
+function handleQRUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // Try both orientations
+      let code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'dontInvert'});
+      if (!code) code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'onlyInvert'});
+      if (code && code.data) {
+        toast('QR detected in image!', 'ok');
+        processScanned(code.data.trim());
+      } else {
+        toast('No QR code found in image. Try a clearer photo.', 'err');
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  // Reset so same file can be re-uploaded
+  input.value = '';
+}
+
 function handlePaste() {
   const v=document.getElementById('pasteInput').value.trim();
   if(!v){toast('Paste a DNv1: payload first.','err');return;}
@@ -962,37 +1015,37 @@ function hideAllScanCards() {
 function processScanned(raw) {
   const parsed = parsePayload(raw);
   hideAllScanCards();
+  // Hide scanner card for ALL outcomes — result cards replace it
+  document.getElementById('scanCard').style.display = 'none';
 
   if (!parsed) {
-    // Show first 80 chars of what was actually read — helps diagnose wrong QR
     const preview = raw.length > 80 ? raw.substring(0,80)+'…' : raw;
     document.getElementById('expiredReason').textContent =
-      'Not a valid DropNote QR. Read: "' + preview + '"';
+      'Not a valid DropNote QR. Scanned: "' + preview + '"';
     document.getElementById('expiredCard').style.display = 'block';
     setStatus('Invalid QR','sv-err');
     return;
   }
 
-  document.getElementById('scanId').textContent=parsed.id;
-  document.getElementById('scanExpires').textContent=fmtDate(parsed.expiresAt);
-  document.getElementById('scanAlgo').textContent='AES-256-GCM · PBKDF2';
+  document.getElementById('scanId').textContent = parsed.id;
+  document.getElementById('scanExpires').textContent = fmtDate(parsed.expiresAt);
+  document.getElementById('scanAlgo').textContent = 'AES-256-GCM · PBKDF2';
 
-  if(Date.now()>parsed.expiresAt) {
-    document.getElementById('expiredReason').textContent='This drop expired on '+fmtDate(parsed.expiresAt)+'. It cannot be decrypted.';
-    document.getElementById('expiredCard').style.display='block';
+  if (Date.now() > parsed.expiresAt) {
+    document.getElementById('expiredReason').textContent = 'This drop expired on '+fmtDate(parsed.expiresAt)+'. It cannot be decrypted.';
+    document.getElementById('expiredCard').style.display = 'block';
     setStatus('Expired','sv-err');
-    document.getElementById('scanTimeLeft').textContent='Expired';
+    document.getElementById('scanTimeLeft').textContent = 'Expired';
     return;
   }
 
-  const rem=parsed.expiresAt-Date.now(), t=fmtTime(rem);
-  document.getElementById('scanTimeLeft').textContent=t.desc+' remaining';
-  document.getElementById('pinGateMeta').textContent=parsed.id+' · '+t.desc+' remaining · AES-256-GCM';
+  const rem = parsed.expiresAt - Date.now(), t = fmtTime(rem);
+  document.getElementById('scanTimeLeft').textContent = t.desc+' remaining';
+  document.getElementById('pinGateMeta').textContent = parsed.id+' · '+t.desc+' remaining · AES-256-GCM';
   setStatus('Locked · awaiting PIN','sv-warn');
-  pendingPayload=parsed;
-  document.getElementById('scanCard').style.display='none';
-  document.getElementById('pinGateCard').style.display='block';
-  setTimeout(()=>document.getElementById('pinUnlockInput').focus(),100);
+  pendingPayload = parsed;
+  document.getElementById('pinGateCard').style.display = 'block';
+  setTimeout(()=>document.getElementById('pinUnlockInput').focus(), 100);
 }
 
 function setStatus(text, cls) {
@@ -1098,6 +1151,18 @@ function destroyAll(){
 pruneIdx();
 updateStats();
 setInterval(()=>{pruneIdx();updateStats();},60000);
+
+// Detect if camera will work — requires https:// or localhost
+(function checkSecureContext(){
+  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!isSecure) {
+    // Show warning, hide camera button
+    const warn = document.getElementById('httpsWarning');
+    const btn  = document.getElementById('cameraBtn');
+    if (warn) warn.style.display = 'block';
+    if (btn)  { btn.style.display = 'none'; }
+  }
+})();
 </script>
 </body>
 </html>
