@@ -480,7 +480,7 @@
               <div style="text-align:center;margin:14px 0;font-size:11px;color:var(--muted)">— or paste payload text —</div>
 
               <div style="display:flex;gap:8px;max-width:340px;margin:0 auto">
-                <textarea class="form-input" id="pasteInput" placeholder="Paste DNv1|… payload here" rows="2" style="min-height:unset;font-size:11px;font-family:monospace;resize:none"></textarea>
+                <textarea class="form-input" id="pasteInput" placeholder="Paste DNv2.… payload here" rows="2" style="min-height:unset;font-size:11px;font-family:monospace;resize:none"></textarea>
                 <button class="action-btn" onclick="handlePaste()" style="width:auto;padding:10px 14px;flex-shrink:0;align-self:stretch">Go</button>
               </div>
 
@@ -650,27 +650,30 @@ async function decryptMsg(enc, pin) {
 }
 
 // ══════════════════════════════════════
-// PAYLOAD  DNv2|[id]|[expiry]|[saltB64]|[ivB64]|[ctB64]
-// ~50% smaller than hex — QR codes are much easier to scan
+// PAYLOAD FORMAT — no separator, fixed-field prefix
+// DNv2.[id12].[expiry13].[saltB64_22].[ivB64_16].[ctB64_rest]
+// Uses . as separator — universally safe, never in Base64URL
 // ══════════════════════════════════════
 function buildPayload(id, expiresAt, enc) {
-  return `DNv2|${id}|${expiresAt}|${enc.salt}|${enc.iv}|${enc.ct}`;
+  return `DNv2.${id}.${expiresAt}.${enc.salt}.${enc.iv}.${enc.ct}`;
 }
 
 function parsePayload(raw) {
   if (!raw) return null;
-  const s = raw.trim().replace(/\s+/g,'');
-  const v2 = s.startsWith('DNv2|');
-  const v1p = s.startsWith('DNv1|');
-  const v1c = s.startsWith('DNv1:');
-  if (!v2 && !v1p && !v1c) return null;
-  const p = s.split(v1c ? ':' : '|');
+  let s = raw.trim();
+  try { s = decodeURIComponent(s); } catch(e) {}
+  s = s.replace(/\s+/g,'');
+  // Normalise any mangled separators back to dots
+  // Some scanners turn | into %7C or \u007C — we handle dot and pipe and colon
+  // Replace any legacy separators
+  if (s.startsWith('DNv2|') || s.startsWith('DNv1|')) s = s.replace(/\|/g, '.');
+  if (s.startsWith('DNv1:')) s = s.replace(/:/g, '.');
+  if (!s.startsWith('DNv2.') && !s.startsWith('DNv1.')) return null;
+  const p = s.split('.');
   if (p.length !== 6) return null;
   const expiresAt = parseInt(p[2]);
   if (isNaN(expiresAt)) return null;
   return {id:p[1], expiresAt, salt:p[3], iv:p[4], ct:p[5]};
-  // Note: v1 used hex encoding — those drops will fail decryption gracefully
-  // (wrong PIN error). v2 uses Base64URL.
 }
 
 // ══════════════════════════════════════
