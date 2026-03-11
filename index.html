@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DropNote — Secure Message Drop</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+  :root {
+    --navy:#0a1628;--navy2:#102040;--blue:#1a3a6b;
+    --accent:#0052cc;--accent-light:#1769e0;
+    --gold:#b8960c;--gold-light:#d4ac20;
+    --white:#ffffff;--off-white:#f7f8fa;--light:#eef1f6;
+    --border:#dce3ed;--border2:#c8d3e3;
+    --text:#0a1628;--text2:#3a4a63;--muted:#6b7a99;
+    --success:#0a7c4e;--error:#c0392b;
+    --serif:'EB Garamond',Georgia,serif;
+    --sans:'DM Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--off-white);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;}
+
+  .topbar{background:var(--navy);padding:0 48px;height:40px;display:flex;align-items:center;justify-content:space-between;}
+  .topbar-tag{font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);}
+  .topbar-right{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.35);}
+  .secure-dot{width:5px;height:5px;border-radius:50%;background:#2ecc71;box-shadow:0 0 6px #2ecc71;}
+
+  header{background:var(--white);border-bottom:1px solid var(--border);padding:0 48px;}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;height:76px;}
+  .brand{display:flex;align-items:center;gap:16px;}
+  .brand-mark{width:38px;height:38px;background:var(--navy);display:flex;align-items:center;justify-content:center;position:relative;}
+  .brand-mark::after{content:'';position:absolute;inset:3px;border:1.5px solid rgba(255,255,255,0.18);}
+  .brand-mark svg{width:17px;height:17px;fill:none;stroke:white;stroke-width:1.5;position:relative;z-index:1;}
+  .brand-name{font-family:var(--serif);font-size:22px;font-weight:600;color:var(--navy);line-height:1;}
+  .brand-sub{font-size:10px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+  .header-nav{display:flex;align-items:center;height:100%;}
+  .nav-item{height:100%;display:flex;align-items:center;padding:0 18px;font-size:12px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .nav-item:hover{color:var(--navy);}
+  .nav-item.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  .hero-band{background:var(--navy);padding:32px 48px;display:flex;align-items:flex-end;justify-content:space-between;}
+  .hero-eyebrow{font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--gold-light);margin-bottom:8px;}
+  .hero-title{font-family:var(--serif);font-size:34px;font-weight:500;color:var(--white);line-height:1.15;}
+  .hero-title em{font-style:italic;color:rgba(255,255,255,0.6);}
+  .hero-stats{display:flex;gap:36px;align-items:flex-end;}
+  .stat{text-align:right;}
+  .stat-num{font-family:var(--serif);font-size:26px;font-weight:600;color:var(--white);line-height:1;}
+  .stat-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-top:3px;}
+  .stat-div{width:1px;height:32px;background:rgba(255,255,255,0.12);align-self:center;}
+
+  .page{display:none;flex:1;}
+  .page.active{display:flex;flex-direction:column;}
+  .page-inner{max-width:1100px;width:100%;margin:0 auto;padding:32px 48px 48px;flex:1;}
+
+  .card{background:var(--white);border:1px solid var(--border);box-shadow:0 1px 3px rgba(10,22,40,.06);margin-bottom:16px;}
+  .card:last-child{margin-bottom:0;}
+  .card-header{padding:18px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  .card-title-wrap{display:flex;align-items:center;gap:10px;}
+  .card-icon{width:30px;height:30px;background:var(--light);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .card-title{font-size:13px;font-weight:600;color:var(--navy);}
+  .card-subtitle{font-size:11px;color:var(--muted);margin-top:1px;}
+  .card-body{padding:24px;}
+  .card-badge{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:3px 10px;background:var(--light);border:1px solid var(--border2);color:var(--muted);}
+  .card-badge.live{background:#e8f5ee;border-color:#b0dcc0;color:var(--success);}
+  .card-badge.locked{background:#fff8e6;border-color:#f0d890;color:#7a5c00;}
+  .card-badge.expired{background:#fbeae9;border-color:#f0c0ba;color:var(--error);}
+
+  .two-col{display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start;}
+  .divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
+
+  .form-row{margin-bottom:18px;}
+  .form-label{font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;}
+  .form-hint{font-weight:400;letter-spacing:0;text-transform:none;font-size:10px;color:var(--muted);font-style:italic;}
+  .input-wrap{position:relative;}
+  .form-input{width:100%;background:var(--white);border:1px solid var(--border2);color:var(--navy);font-family:var(--sans);font-size:13px;padding:10px 12px;outline:none;transition:border-color .15s,box-shadow .15s;resize:vertical;}
+  .form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,82,204,.08);}
+  .form-input::placeholder{color:#aab4c8;}
+  textarea.form-input{min-height:110px;line-height:1.6;}
+  .input-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:4px;line-height:1;}
+
+  .expiry-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .expiry-btn{padding:10px 8px;background:var(--white);border:1px solid var(--border2);color:var(--muted);font-family:var(--sans);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;text-align:center;}
+  .expiry-btn:hover{border-color:var(--accent);color:var(--navy);background:#f7f9ff;}
+  .expiry-btn.active{border-color:var(--accent);background:#eef3ff;color:var(--accent);box-shadow:inset 2px 0 0 var(--accent);}
+  .expiry-label{font-size:12px;font-weight:600;display:block;}
+  .expiry-sub{font-size:9px;color:var(--muted);margin-top:2px;display:block;}
+  .expiry-btn.active .expiry-sub{color:var(--accent);opacity:.7;}
+
+  .action-btn{width:100%;padding:13px 24px;background:var(--accent);border:none;color:var(--white);font-family:var(--sans);font-weight:600;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;overflow:hidden;}
+  .action-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);transition:left .4s;}
+  .action-btn:hover::before{left:100%;}
+  .action-btn:hover{background:var(--accent-light);box-shadow:0 4px 16px rgba(0,82,204,.22);}
+  .action-btn:disabled{background:var(--border2);color:var(--muted);cursor:not-allowed;box-shadow:none;}
+  .action-btn.danger{background:var(--error);}
+  .action-btn.danger:hover{background:#a93226;}
+  .action-btn.ghost{background:var(--white);color:var(--navy);border:1px solid var(--border2);}
+  .action-btn.ghost:hover{background:var(--light);border-color:var(--accent);color:var(--accent);box-shadow:none;}
+  .btn-row{display:flex;gap:8px;}
+  .btn-row .action-btn{flex:1;}
+
+  .strength-row{display:flex;align-items:center;gap:4px;margin-top:7px;}
+  .str-seg{height:3px;flex:1;background:var(--border);border-radius:2px;transition:background .2s;}
+  .str-seg.weak{background:var(--error);}
+  .str-seg.fair{background:var(--gold);}
+  .str-seg.good{background:#2980b9;}
+  .str-seg.strong{background:var(--success);}
+  .str-label{font-size:10px;color:var(--muted);margin-left:4px;width:48px;flex-shrink:0;}
+
+  .warn-note{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5;padding:8px 10px;background:rgba(184,150,12,.07);border-left:2px solid var(--gold);}
+
+  .qr-wrap{text-align:center;padding:24px 20px 20px;}
+  .qr-box{display:inline-block;padding:14px;background:var(--white);border:1px solid var(--border2);margin-bottom:14px;}
+  #qrcode canvas,#qrcode img{display:block;}
+  .qr-id{font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:var(--navy);letter-spacing:1.5px;margin-bottom:4px;}
+  .qr-meta{font-size:11px;color:var(--muted);}
+  .qr-meta strong{color:var(--navy);}
+  .qr-size-note{font-size:10px;margin-top:6px;font-style:italic;}
+  .qr-size-note.ok{color:var(--success);}
+  .qr-size-note.warn{color:var(--gold);}
+
+  .qr-export-btns{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+  .qr-export-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--white);border:1px solid var(--border2);color:var(--text2);font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:all .15s;}
+  .qr-export-btn:hover{border-color:var(--accent);color:var(--accent);background:#f0f4ff;}
+  .qr-export-btn.share-qr{background:var(--navy);color:var(--white);border-color:var(--navy);}
+  .qr-export-btn.share-qr:hover{background:var(--blue);}
+  .qr-export-btn.copied{border-color:var(--success);color:var(--success);background:#e8f5ee;}
+
+  .timer-wrap{display:flex;flex-direction:column;align-items:center;padding:20px;}
+  .timer-ring{position:relative;width:96px;height:96px;margin-bottom:12px;}
+  .timer-ring svg{transform:rotate(-90deg);}
+  .timer-ring .bg{fill:none;stroke:var(--light);stroke-width:6;}
+  .timer-ring .prog{fill:none;stroke:var(--accent);stroke-width:6;stroke-linecap:butt;transition:stroke-dashoffset 1s linear;}
+  .timer-ring .prog.warn{stroke:var(--gold);}
+  .timer-ring .prog.crit{stroke:var(--error);}
+  .timer-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .timer-val{font-family:var(--serif);font-size:18px;font-weight:600;color:var(--navy);line-height:1;}
+  .timer-unit{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+  .timer-label{font-size:11px;color:var(--muted);text-align:center;line-height:1.5;}
+  .timer-label strong{color:var(--navy);display:block;font-size:12px;margin-bottom:2px;}
+
+  .spec-table{width:100%;border-collapse:collapse;}
+  .spec-table tr{border-bottom:1px solid var(--border);}
+  .spec-table tr:last-child{border-bottom:none;}
+  .spec-table td{padding:9px 18px;font-size:11px;}
+  .spec-table td:first-child{color:var(--muted);font-weight:500;text-transform:uppercase;font-size:10px;letter-spacing:.8px;width:45%;}
+  .spec-table td:last-child{color:var(--navy);font-weight:500;}
+  .sv-ok{color:var(--success)!important;}
+  .sv-err{color:var(--error)!important;}
+  .sv-accent{color:var(--accent)!important;}
+  .sv-warn{color:var(--gold)!important;}
+
+  .scanner-wrap{position:relative;background:#000;overflow:hidden;}
+  .scanner-wrap video{width:100%;display:block;max-height:300px;object-fit:cover;}
+  .scanner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+  .scan-frame{width:180px;height:180px;position:relative;}
+  .scan-frame::before,.scan-frame::after,.scan-frame span::before,.scan-frame span::after{content:'';position:absolute;width:22px;height:22px;border-color:white;border-style:solid;}
+  .scan-frame::before{top:0;left:0;border-width:2px 0 0 2px;}
+  .scan-frame::after{top:0;right:0;border-width:2px 2px 0 0;}
+  .scan-frame span::before{bottom:0;left:0;border-width:0 0 2px 2px;}
+  .scan-frame span::after{bottom:0;right:0;border-width:0 2px 2px 0;}
+  .scan-line{position:absolute;left:10px;right:10px;height:2px;background:rgba(0,82,204,.8);box-shadow:0 0 8px rgba(0,82,204,.6);animation:scanline 2s ease-in-out infinite;}
+  @keyframes scanline{0%,100%{top:10px;}50%{top:calc(100% - 12px);}}
+  .scanner-hint{text-align:center;padding:10px;font-size:11px;color:var(--muted);background:var(--off-white);border-top:1px solid var(--border);}
+
+  .reveal-anim{animation:revealIn .4s ease forwards;}
+  @keyframes revealIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .message-display{background:var(--navy);color:var(--white);padding:28px;font-family:var(--serif);font-size:18px;line-height:1.75;position:relative;border-left:3px solid var(--gold-light);word-break:break-word;}
+  .message-display::before{content:'"';position:absolute;top:8px;left:16px;font-size:60px;color:rgba(255,255,255,.06);font-family:var(--serif);line-height:1;}
+  .destruct-bar{height:4px;background:var(--light);overflow:hidden;}
+  .destruct-fill{height:100%;background:var(--error);transition:width 1s linear;}
+
+  .destroyed-state{text-align:center;padding:48px 24px;}
+  .destroyed-icon{font-size:36px;margin-bottom:16px;opacity:.5;}
+  .destroyed-title{font-family:var(--serif);font-size:22px;color:var(--navy);margin-bottom:8px;}
+  .destroyed-sub{font-size:13px;color:var(--muted);line-height:1.6;}
+
+  .vault-empty{text-align:center;padding:40px 24px;color:var(--muted);font-size:13px;}
+  .vault-empty-icon{font-size:28px;margin-bottom:10px;opacity:.4;}
+  .vault-item{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--border);transition:background .12s;}
+  .vault-item:last-child{border-bottom:none;}
+  .vault-item:hover{background:var(--off-white);}
+  .vault-item-icon{width:32px;height:32px;background:var(--light);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .vault-item-info{flex:1;min-width:0;}
+  .vault-item-id{font-size:11px;font-weight:600;color:var(--navy);font-family:'Courier New',monospace;letter-spacing:.8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .vault-item-meta{font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .vault-item-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+  .time-left{font-size:11px;font-weight:600;color:var(--success);}
+  .time-left.warn{color:var(--gold);}
+  .time-left.crit{color:var(--error);}
+
+  .error-box{display:none;font-size:11px;color:var(--error);margin-bottom:12px;padding:8px 12px;background:#fbeae9;border-left:3px solid var(--error);}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:var(--white);padding:12px 20px;font-size:12px;font-weight:500;z-index:999;transition:transform .3s ease;white-space:nowrap;border-left:3px solid var(--accent);box-shadow:0 4px 20px rgba(10,22,40,.3);}
+  .toast.show{transform:translateX(-50%) translateY(0);}
+  .toast.ok{border-left-color:var(--success);}
+  .toast.err{border-left-color:var(--error);}
+
+  footer{background:var(--white);border-top:1px solid var(--border);padding:14px 48px;display:flex;justify-content:space-between;align-items:center;}
+  .footer-left{display:flex;align-items:center;gap:20px;font-size:11px;color:var(--muted);}
+  .footer-sep{width:1px;height:12px;background:var(--border2);}
+  .footer-right{font-size:11px;color:var(--muted);}
+
+  /* Mobile nav */
+  .hamburger-btn{display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;}
+  .hamburger-btn span{display:block;width:22px;height:2px;background:var(--navy);border-radius:2px;}
+  .mobile-menu{display:none;background:var(--white);border-bottom:1px solid var(--border);box-shadow:0 4px 12px rgba(10,22,40,.1);z-index:50;}
+  .mobile-menu.open{display:block;}
+  .mobile-menu-item{display:flex;align-items:center;gap:14px;padding:14px 20px;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;}
+  .mobile-menu-item:last-child{border-bottom:none;}
+  .mobile-menu-item.active,.mobile-menu-item:hover{background:#f0f4ff;color:var(--accent);}
+  .mobile-menu-item.active{border-left:3px solid var(--accent);}
+  .mm-icon{font-size:16px;width:20px;text-align:center;}
+  .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);z-index:100;padding-bottom:env(safe-area-inset-bottom);}
+  .bottom-nav-inner{display:flex;height:56px;}
+  .bottom-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border-top:2px solid transparent;transition:all .15s;padding:4px;}
+  .bottom-nav-item.active{border-top-color:var(--accent);}
+  .bn-icon{font-size:16px;line-height:1;}
+  .bn-label{font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
+  .bottom-nav-item.active .bn-label{color:var(--accent);}
+
+  @media(max-width:900px){
+    .two-col{grid-template-columns:1fr;}
+    .topbar,header,.page-inner,footer{padding-left:24px;padding-right:24px;}
+    .hero-band{padding:24px;flex-direction:column;gap:16px;}
+    .hero-title{font-size:28px;}
+    .expiry-grid{grid-template-columns:1fr 1fr;}
+  }
+  @media(max-width:600px){
+    .topbar{padding:0 16px;}
+    .topbar-right span{display:none;}
+    header{padding:0 16px;}
+    .header-inner{height:58px;}
+    .header-nav,.header-tagline{display:none;}
+    .brand-sub{display:none;}
+    .brand-name{font-size:18px;}
+    .hamburger-btn{display:flex;}
+    .hero-band{padding:16px;flex-direction:column;gap:12px;}
+    .hero-title{font-size:22px;}
+    .hero-eyebrow{font-size:9px;margin-bottom:5px;}
+    .hero-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;width:100%;}
+    .stat{text-align:center;padding:10px 4px;background:rgba(255,255,255,.05);}
+    .stat-num{font-size:17px;}
+    .stat-label{font-size:8px;}
+    .stat-div{display:none;}
+    .page-inner{padding:16px 16px 80px;}
+    .card-header{padding:12px 16px;flex-wrap:wrap;gap:8px;}
+    .card-body{padding:16px;}
+    .btn-row{flex-direction:column;}
+    .btn-row .action-btn{width:100%;flex:none;}
+    .vault-item-id{font-size:10px;}
+    .vault-item{padding:12px 14px;gap:10px;}
+    .toast{white-space:normal;text-align:center;width:calc(100% - 32px);left:16px;transform:translateY(80px);}
+    .toast.show{transform:translateY(0);}
+    footer{display:none;}
+    .bottom-nav{display:block;}
+    .mobile-hide{display:none!important;}
+    #qrcode canvas,#qrcode img{width:200px!important;height:200px!important;}
+    .message-display{font-size:16px;padding:20px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-tag">DropNote — Secure Message Drop</span>
+  <div class="topbar-right"><div class="secure-dot"></div><span>AES-256-GCM · Zero-server · Cross-device</span></div>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">DropNote</div>
+        <div class="brand-sub">Secure Message Drop</div>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <div class="nav-item active" id="nav-compose" onclick="showPage('compose')">Compose</div>
+      <div class="nav-item" id="nav-scan" onclick="showPage('scan')">Scan &amp; Reveal</div>
+      <div class="nav-item" id="nav-vault" onclick="showPage('vault')">My Drops</div>
+    </nav>
+    <span class="header-tagline" style="font-size:11px;color:var(--muted)">AES-256-GCM · PBKDF2 · Zero-server</span>
+    <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-item active" id="mm-compose" onclick="showPage('compose')"><span class="mm-icon">✏️</span>Compose</div>
+  <div class="mobile-menu-item" id="mm-scan" onclick="showPage('scan')"><span class="mm-icon">📷</span>Scan &amp; Reveal</div>
+  <div class="mobile-menu-item" id="mm-vault" onclick="showPage('vault')"><span class="mm-icon">🗄️</span>My Drops</div>
+</div>
+
+<div class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <div class="bottom-nav-item active" id="bn-compose" onclick="showPage('compose')"><span class="bn-icon">✏️</span><span class="bn-label">Compose</span></div>
+    <div class="bottom-nav-item" id="bn-scan" onclick="showPage('scan')"><span class="bn-icon">📷</span><span class="bn-label">Scan</span></div>
+    <div class="bottom-nav-item" id="bn-vault" onclick="showPage('vault')"><span class="bn-icon">🗄️</span><span class="bn-label">My Drops</span></div>
+  </div>
+</div>
+
+<div class="hero-band">
+  <div>
+    <div class="hero-eyebrow" id="heroEyebrow">Secure Message Drop</div>
+    <div class="hero-title" id="heroTitle">Encrypt, scan, reveal —<br><em>on any device, anywhere.</em></div>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num" id="statDrops">0</div><div class="stat-label">Active Drops</div></div>
+    <div class="stat-div"></div>
+    <div class="stat"><div class="stat-num" id="statExpired">0</div><div class="stat-label">Expired</div></div>
+    <div class="stat-div"></div>
+    <div class="stat"><div class="stat-num">0</div><div class="stat-label">Server Logs</div></div>
+  </div>
+</div>
+
+<!-- COMPOSE -->
+<div class="page active" id="page-compose">
+  <div class="page-inner">
+    <div class="two-col">
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title-wrap">
+              <div class="card-icon">✏️</div>
+              <div><div class="card-title">Compose Message</div><div class="card-subtitle">Full encrypted payload lives in the QR — works on any device</div></div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-label">Message <span class="form-hint" id="charHint">0 / 300</span></div>
+              <textarea class="form-input" id="msgInput" placeholder="Type your secret message…" maxlength="300" oninput="onMsgInput(this)"></textarea>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Shorter messages = smaller, more scannable QR codes</div>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Recipient PIN <span class="form-hint">Only the PIN can decrypt — share it separately</span></div>
+              <div class="input-wrap">
+                <input type="password" class="form-input" id="pinInput" placeholder="Set a PIN or passphrase for the recipient…" maxlength="64" oninput="onPinInput(this.value)" style="padding-right:38px">
+                <button class="input-eye" onclick="toggleVis('pinInput')">👁</button>
+              </div>
+              <div class="strength-row" id="strengthRow" style="display:none">
+                <div class="str-seg" id="ss1"></div><div class="str-seg" id="ss2"></div>
+                <div class="str-seg" id="ss3"></div><div class="str-seg" id="ss4"></div>
+                <span class="str-label" id="strLabel"></span>
+              </div>
+              <div class="warn-note">⚠ Never send the PIN with the QR. Share it via call, in-person, or a separate channel.</div>
+            </div>
+            <div class="form-row">
+              <div class="form-label">Label <span class="form-hint">Private — stored locally, never in QR</span></div>
+              <input type="text" class="form-input" id="labelInput" placeholder="e.g. For Alice, Project X…" maxlength="40">
+            </div>
+            <hr class="divider">
+            <div class="form-label" style="margin-bottom:10px">Self-Destruct Timer</div>
+            <div class="expiry-grid">
+              <button class="expiry-btn" onclick="setExpiry(3600000,this)"><span class="expiry-label">1 hr</span><span class="expiry-sub">60 min</span></button>
+              <button class="expiry-btn active" onclick="setExpiry(21600000,this)"><span class="expiry-label">6 hrs</span><span class="expiry-sub">Default</span></button>
+              <button class="expiry-btn" onclick="setExpiry(86400000,this)"><span class="expiry-label">24 hrs</span><span class="expiry-sub">One day</span></button>
+              <button class="expiry-btn" onclick="setExpiry(259200000,this)"><span class="expiry-label">72 hrs</span><span class="expiry-sub">Three days</span></button>
+            </div>
+            <hr class="divider">
+            <button class="action-btn" id="createBtn" onclick="createDrop()">🔐 Encrypt &amp; Generate QR</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div id="preCreate">
+          <div class="card">
+            <div class="card-header"><div class="card-title-wrap"><div class="card-icon" style="font-size:11px">ℹ</div><div><div class="card-title">How It Works</div></div></div></div>
+            <div style="padding:16px 20px;font-size:11px;line-height:1.85;color:var(--text2)">
+              <p style="margin-bottom:10px"><strong style="color:var(--navy)">1. Write &amp; set a PIN.</strong> Message encrypted with AES-256-GCM. PBKDF2 derives the key from your PIN — it's never stored.</p>
+              <p style="margin-bottom:10px"><strong style="color:var(--navy)">2. QR carries everything.</strong> Salt, IV, ciphertext, and expiry are all encoded in the QR. Zero server involvement.</p>
+              <p style="margin-bottom:10px"><strong style="color:var(--navy)">3. Any device can scan.</strong> iPhone, Android, laptop — anyone with DropNote can scan and decrypt with the PIN.</p>
+              <p><strong style="color:var(--navy)">4. Expires automatically.</strong> After the timer, the QR is rejected — no one can read it even with the correct PIN.</p>
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <table class="spec-table">
+              <tr><td>Encryption</td><td class="sv-ok">AES-256-GCM</td></tr>
+              <tr><td>Key derivation</td><td>PBKDF2-SHA256 · 100K rounds</td></tr>
+              <tr><td>QR payload</td><td>Salt + IV + ciphertext + expiry</td></tr>
+              <tr><td>Server contact</td><td class="sv-ok">None — fully offline</td></tr>
+              <tr><td>Cross-device</td><td class="sv-ok">Yes — any phone/computer</td></tr>
+              <tr><td>Max message</td><td>300 characters</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <div id="postCreate" style="display:none">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title-wrap"><div class="card-icon">📱</div><div><div class="card-title">Scan to Reveal</div><div class="card-subtitle">Any device with DropNote can decrypt this</div></div></div>
+              <div class="card-badge live" id="dropBadge">LIVE</div>
+            </div>
+            <div class="qr-wrap">
+              <div class="qr-box"><div id="qrcode"></div></div>
+              <div class="qr-id" id="qrDropId">—</div>
+              <div class="qr-meta">Expires: <strong id="qrExpiry">—</strong></div>
+              <div class="qr-size-note" id="qrSizeNote"></div>
+              <div class="qr-export-btns">
+                <button class="qr-export-btn" onclick="downloadQR()">↓ Save PNG</button>
+                <button class="qr-export-btn share-qr" id="shareBtn" style="display:none" onclick="shareQR()">↗ Share</button>
+                <button class="qr-export-btn" id="copyBtn" onclick="copyDropId()">⊞ Copy ID</button>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-header"><div class="card-title-wrap"><div class="card-icon" style="font-size:11px">⏱</div><div><div class="card-title">Time Remaining</div></div></div></div>
+            <div class="timer-wrap">
+              <div class="timer-ring">
+                <svg width="96" height="96" viewBox="0 0 96 96">
+                  <circle class="bg" cx="48" cy="48" r="42"/>
+                  <circle class="prog" id="timerCircle" cx="48" cy="48" r="42" stroke-dasharray="263.89" stroke-dashoffset="0"/>
+                </svg>
+                <div class="timer-center">
+                  <div class="timer-val" id="timerVal">—</div>
+                  <div class="timer-unit" id="timerUnit">—</div>
+                </div>
+              </div>
+              <div class="timer-label"><strong id="timerDesc">—</strong><span id="timerSub">—</span></div>
+            </div>
+          </div>
+          <button class="action-btn ghost" onclick="resetCompose()" style="margin-top:4px;margin-bottom:8px">← Compose New Drop</button>
+          <button class="action-btn danger" onclick="destroyCurrentDrop()">🗑 Destroy This Drop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCAN -->
+<div class="page" id="page-scan">
+  <div class="page-inner">
+    <div class="two-col">
+      <div>
+        <div class="card" id="scanCard">
+          <div class="card-header">
+            <div class="card-title-wrap"><div class="card-icon">📷</div><div><div class="card-title">Scan QR Code</div><div class="card-subtitle">Works from any device — no account needed</div></div></div>
+          </div>
+          <div class="scanner-wrap" id="scannerWrap" style="display:none">
+            <video id="scanVideo" autoplay playsinline muted></video>
+            <canvas id="scanCanvas" style="display:none"></canvas>
+            <div class="scanner-overlay"><div class="scan-frame"><span></span><div class="scan-line"></div></div></div>
+          </div>
+          <div class="scanner-hint" id="scannerHint" style="display:none">Align the QR within the frame</div>
+          <div class="card-body" id="scanPrompt">
+            <div style="text-align:center;padding:16px 0">
+              <div style="font-size:36px;margin-bottom:14px">📷</div>
+              <p style="font-size:13px;color:var(--text2);margin-bottom:18px">Camera is processed locally.<br>Nothing is uploaded or stored.</p>
+              <button class="action-btn" onclick="startScanner()" style="max-width:260px;margin:0 auto">Open Camera</button>
+              <div style="margin:14px 0;font-size:11px;color:var(--muted)">— or paste payload directly —</div>
+              <div style="display:flex;gap:8px;max-width:340px;margin:0 auto">
+                <textarea class="form-input" id="pasteInput" placeholder="Paste DNv1:… payload here" rows="2" style="min-height:unset;font-size:11px;font-family:monospace;resize:none"></textarea>
+                <button class="action-btn" onclick="handlePaste()" style="width:auto;padding:10px 14px;flex-shrink:0;align-self:stretch">Go</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PIN gate -->
+        <div id="pinGateCard" style="display:none">
+          <div class="card reveal-anim">
+            <div class="card-header">
+              <div class="card-title-wrap"><div class="card-icon">🔑</div><div><div class="card-title">Enter PIN to Decrypt</div><div class="card-subtitle" id="pinGateMeta">—</div></div></div>
+              <div class="card-badge locked">LOCKED</div>
+            </div>
+            <div class="card-body">
+              <div class="form-row" style="margin-bottom:12px">
+                <div class="form-label">PIN / Passphrase</div>
+                <div class="input-wrap">
+                  <input type="password" class="form-input" id="pinUnlockInput" placeholder="Enter the PIN from the sender…" onkeydown="if(event.key==='Enter')unlockDrop()" style="padding-right:38px">
+                  <button class="input-eye" onclick="toggleVis('pinUnlockInput')">👁</button>
+                </div>
+              </div>
+              <div class="error-box" id="pinError">✕ Incorrect PIN — decryption failed. Try again.</div>
+              <button class="action-btn" id="unlockBtn" onclick="unlockDrop()">🔓 Decrypt Message</button>
+              <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">PIN never leaves your device — fully local decryption</div>
+            </div>
+          </div>
+          <button class="action-btn ghost" onclick="resetScan()" style="margin-top:8px">← Scan Another</button>
+        </div>
+
+        <!-- Revealed -->
+        <div id="revealCard" style="display:none">
+          <div class="card reveal-anim">
+            <div class="card-header">
+              <div class="card-title-wrap"><div class="card-icon">🔓</div><div><div class="card-title">Message Decrypted</div><div class="card-subtitle" id="revealMeta">—</div></div></div>
+              <div class="card-badge live">DECRYPTED</div>
+            </div>
+            <div class="destruct-bar"><div class="destruct-fill" id="destructFill" style="width:100%"></div></div>
+            <div class="message-display" id="revealedMsg">—</div>
+            <div class="card-body" style="padding-top:14px">
+              <div class="btn-row">
+                <button class="action-btn ghost" onclick="resetScan()">← Scan Another</button>
+                <button class="action-btn danger" onclick="destroyRevealed()">🗑 Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Expired / invalid -->
+        <div id="expiredCard" style="display:none">
+          <div class="card">
+            <div class="destroyed-state">
+              <div class="destroyed-icon">💨</div>
+              <div class="destroyed-title">Drop Expired or Invalid</div>
+              <div class="destroyed-sub" id="expiredReason">This QR has expired or is not a valid DropNote payload.</div>
+              <button class="action-btn ghost" onclick="resetScan()" style="max-width:220px;margin:20px auto 0">← Try Another</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mobile-hide">
+        <div class="card">
+          <div class="card-header"><div class="card-title-wrap"><div class="card-icon" style="font-size:11px">⚙</div><div><div class="card-title">Scan Details</div></div></div></div>
+          <table class="spec-table">
+            <tr><td>Status</td><td id="scanStatus" class="sv-accent">Awaiting scan</td></tr>
+            <tr><td>Drop ID</td><td id="scanId" style="font-family:monospace;font-size:10px">—</td></tr>
+            <tr><td>Expires</td><td id="scanExpires">—</td></tr>
+            <tr><td>Time left</td><td id="scanTimeLeft">—</td></tr>
+            <tr><td>Algorithm</td><td id="scanAlgo">—</td></tr>
+          </table>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div style="padding:16px 20px;font-size:11px;line-height:1.85;color:var(--text2)">
+            <p style="margin-bottom:8px"><strong style="color:var(--navy)">Fully cross-device.</strong> The encrypted payload lives in the QR — no server lookup, no account, no sync.</p>
+            <p><strong style="color:var(--navy)">Local decryption.</strong> AES-256-GCM runs in your browser. PIN and plaintext are never transmitted anywhere.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VAULT -->
+<div class="page" id="page-vault">
+  <div class="page-inner">
+    <div class="two-col">
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title-wrap"><div class="card-icon">🗄️</div><div><div class="card-title">My Drops</div><div class="card-subtitle">Local index only — the actual payloads live in the QR codes</div></div></div>
+            <button onclick="purgeExpired()" style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;background:var(--light);border:1px solid var(--border2);cursor:pointer;color:var(--muted);font-family:var(--sans);">Purge Expired</button>
+          </div>
+          <div id="vaultList"></div>
+        </div>
+      </div>
+      <div class="mobile-hide">
+        <div class="card">
+          <div class="card-header"><div class="card-title-wrap"><div class="card-icon" style="font-size:11px">📊</div><div><div class="card-title">Summary</div></div></div></div>
+          <table class="spec-table">
+            <tr><td>Active drops</td><td class="sv-ok" id="vaultActive">0</td></tr>
+            <tr><td>Expired</td><td class="sv-err" id="vaultExpiredCount">0</td></tr>
+            <tr><td>Total created</td><td id="vaultTotal">0</td></tr>
+            <tr><td>Index size</td><td id="vaultStorage">0 B</td></tr>
+          </table>
+        </div>
+        <button class="action-btn danger" onclick="destroyAll()" style="margin-top:16px">🗑 Clear All Index Entries</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-left">
+    <span>DropNote v2</span>
+    <div class="footer-sep"></div>
+    <span>AES-256-GCM · PBKDF2 · Zero-server · Cross-device</span>
+  </div>
+  <div class="footer-right">🔐 Payload in the QR — not on any server</div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════
+// CRYPTO
+// ══════════════════════════════════════
+const ROUNDS = 100000;
+const b2h = b => Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');
+const h2b = h => new Uint8Array(h.match(/.{2}/g).map(x=>parseInt(x,16)));
+
+async function deriveKey(pin, saltHex) {
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt:h2b(saltHex), iterations:ROUNDS, hash:'SHA-256'},
+    km, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+  );
+}
+
+async function encryptMsg(text, pin) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+  const key  = await deriveKey(pin, b2h(salt));
+  const ct   = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, new TextEncoder().encode(text));
+  return {salt:b2h(salt), iv:b2h(iv), ct:b2h(new Uint8Array(ct))};
+}
+
+async function decryptMsg(enc, pin) {
+  try {
+    const key = await deriveKey(pin, enc.salt);
+    const pt  = await crypto.subtle.decrypt({name:'AES-GCM',iv:h2b(enc.iv)}, key, h2b(enc.ct));
+    return new TextDecoder().decode(pt);
+  } catch { return null; }
+}
+
+// ══════════════════════════════════════
+// PAYLOAD FORMAT
+// DNv1:[id]:[expiresAt]:[salt]:[iv]:[ct]
+// ══════════════════════════════════════
+function buildPayload(id, expiresAt, enc) {
+  return `DNv1:${id}:${expiresAt}:${enc.salt}:${enc.iv}:${enc.ct}`;
+}
+
+function parsePayload(raw) {
+  if (!raw || !raw.startsWith('DNv1:')) return null;
+  const p = raw.split(':');
+  if (p.length !== 6) return null;
+  return {id:p[1], expiresAt:parseInt(p[2]), salt:p[3], iv:p[4], ct:p[5]};
+}
+
+// ══════════════════════════════════════
+// LOCAL INDEX (no message data stored)
+// ══════════════════════════════════════
+const KEY = 'dropnote_v2';
+const loadIdx = () => { try{return JSON.parse(localStorage.getItem(KEY)||'[]');}catch{return[];} };
+const saveIdx = d => localStorage.setItem(KEY, JSON.stringify(d));
+function pruneIdx() { const a=loadIdx().filter(d=>Date.now()<d.expiresAt); saveIdx(a); return a; }
+
+// ══════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════
+function genId() {
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return 'DN-'+Array.from({length:8},()=>c[Math.floor(Math.random()*c.length)]).join('');
+}
+
+function fmtTime(ms) {
+  const s=Math.floor(ms/1000);
+  if(s<60) return {val:s,unit:'sec',desc:s+'s',cls:'crit'};
+  const m=Math.floor(s/60);
+  if(m<60) return {val:m,unit:'min',desc:m+'m',cls:m<10?'warn':''};
+  const h=Math.floor(m/60);
+  if(h<24) return {val:h,unit:'hrs',desc:h+'h',cls:''};
+  const d=Math.floor(h/24);
+  return {val:d,unit:'days',desc:d+'d',cls:''};
+}
+
+function fmtDate(ts) {
+  return new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function fmtBytes(b) { return b<1024?b+' B':(b/1024).toFixed(1)+' KB'; }
+
+let _toastTmr;
+function toast(msg, type='') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(type?' '+type:'');
+  clearTimeout(_toastTmr); _toastTmr=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+function toggleVis(id) { const e=document.getElementById(id); e.type=e.type==='password'?'text':'password'; }
+
+// ══════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════
+const heroText = {
+  compose:{eyebrow:'Secure Message Drop',   title:'Encrypt, scan, reveal —<br><em>on any device, anywhere.</em>'},
+  scan:   {eyebrow:'Reveal a Message',      title:'Scan the QR, enter PIN,<br><em>decrypts locally on any device.</em>'},
+  vault:  {eyebrow:'Drop Index',            title:'Your drops, tracked locally —<br><em>payloads live in the QRs.</em>'},
+};
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  ['nav','bn','mm'].forEach(pfx=>{
+    document.querySelectorAll('[id^="'+pfx+'-"]').forEach(el=>el.classList.remove('active'));
+    const el=document.getElementById(pfx+'-'+page); if(el) el.classList.add('active');
+  });
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('heroEyebrow').textContent=heroText[page].eyebrow;
+  document.getElementById('heroTitle').innerHTML=heroText[page].title;
+  document.getElementById('mobileMenu').classList.remove('open');
+  if(page==='vault') renderVault();
+  if(page!=='scan') stopScanner();
+  window.scrollTo(0,0);
+  updateStats();
+}
+
+function toggleMobileMenu() { document.getElementById('mobileMenu').classList.toggle('open'); }
+
+// ══════════════════════════════════════
+// STATS
+// ══════════════════════════════════════
+function updateStats() {
+  const a=pruneIdx();
+  document.getElementById('statDrops').textContent=a.length;
+  const total=parseInt(sessionStorage.getItem('dn_total')||'0');
+  document.getElementById('statExpired').textContent=Math.max(0,total-a.length);
+}
+
+// ══════════════════════════════════════
+// COMPOSE
+// ══════════════════════════════════════
+let selExpiry=21600000, currentDropId=null, timerTmr=null;
+
+function onMsgInput(el) {
+  const n=el.value.length, h=document.getElementById('charHint');
+  h.textContent=n+' / 300'; h.className='form-hint'+(n>260?' warn':'');
+}
+
+function onPinInput(v) {
+  const row=document.getElementById('strengthRow');
+  if(!v){row.style.display='none';return;}
+  row.style.display='flex';
+  let s=0;
+  if(v.length>=6) s++; if(v.length>=12) s++;
+  if(/[A-Z]/.test(v)&&/[a-z]/.test(v)) s++;
+  if(/[0-9]/.test(v)||/[^a-zA-Z0-9]/.test(v)) s++;
+  const cls=['','weak','fair','good','strong'], lbl=['','Weak','Fair','Good','Strong'];
+  for(let i=1;i<=4;i++) document.getElementById('ss'+i).className='str-seg'+(i<=s?' '+cls[s]:'');
+  document.getElementById('strLabel').textContent=lbl[s]||'Weak';
+}
+
+function setExpiry(ms,btn) {
+  selExpiry=ms;
+  document.querySelectorAll('.expiry-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function createDrop() {
+  const msg=document.getElementById('msgInput').value.trim();
+  const pin=document.getElementById('pinInput').value;
+  if(!msg) { toast('Write a message first.','err'); return; }
+  if(!pin) { toast('Set a recipient PIN.','err'); return; }
+  if(pin.length<4) { toast('PIN must be at least 4 characters.','err'); return; }
+
+  const btn=document.getElementById('createBtn');
+  btn.disabled=true; btn.innerHTML='⏳ Encrypting…';
+
+  try {
+    const id=genId(), expiresAt=Date.now()+selExpiry;
+    const label=document.getElementById('labelInput').value.trim();
+    const enc=await encryptMsg(msg,pin);
+    const payload=buildPayload(id,expiresAt,enc);
+    const bytes=payload.length;
+    const sizeOk=bytes<=1400;
+
+    // Save index only — payload lives in QR
+    const idx=pruneIdx();
+    idx.push({id,label,createdAt:Date.now(),expiresAt,expiry:selExpiry,payloadSize:bytes});
+    saveIdx(idx);
+    sessionStorage.setItem('dn_total',parseInt(sessionStorage.getItem('dn_total')||'0')+1);
+
+    currentDropId=id;
+    renderQR(id,expiresAt,selExpiry,payload,bytes,sizeOk);
+    updateStats();
+    toast('Encrypted & QR generated.','ok');
+  } catch(e) { toast('Encryption error: '+e.message,'err'); }
+
+  btn.disabled=false; btn.innerHTML='🔐 Encrypt &amp; Generate QR';
+}
+
+function renderQR(id, expiresAt, expiry, payload, bytes, sizeOk) {
+  document.getElementById('preCreate').style.display='none';
+  document.getElementById('postCreate').style.display='block';
+  document.getElementById('qrcode').innerHTML='';
+
+  new QRCode(document.getElementById('qrcode'), {
+    text:payload, width:220, height:220,
+    colorDark:'#0a1628', colorLight:'#ffffff',
+    correctLevel:bytes>1000 ? QRCode.CorrectLevel.L : QRCode.CorrectLevel.M
+  });
+
+  document.getElementById('qrDropId').textContent=id;
+  document.getElementById('qrExpiry').textContent=fmtDate(expiresAt);
+  const note=document.getElementById('qrSizeNote');
+  note.textContent=sizeOk ? '✓ Payload fits comfortably ('+bytes+' chars)' : '⚠ Large payload ('+bytes+' chars) — QR will be dense';
+  note.className='qr-size-note '+(sizeOk?'ok':'warn');
+  if(navigator.share||navigator.canShare) document.getElementById('shareBtn').style.display='flex';
+
+  clearInterval(timerTmr);
+  timerTmr=setInterval(()=>tickTimer(expiresAt,expiry),1000);
+  tickTimer(expiresAt,expiry);
+}
+
+function tickTimer(expiresAt, expiry) {
+  const rem=expiresAt-Date.now();
+  if(rem<=0) {
+    clearInterval(timerTmr);
+    document.getElementById('timerVal').textContent='0';
+    document.getElementById('timerUnit').textContent='expired';
+    document.getElementById('timerDesc').innerHTML='<strong>Expired</strong>';
+    document.getElementById('timerSub').textContent='QR will be rejected on scan';
+    document.getElementById('dropBadge').textContent='EXPIRED';
+    document.getElementById('dropBadge').className='card-badge expired';
+    document.getElementById('timerCircle').style.strokeDashoffset='263.89';
+    pruneIdx(); updateStats(); return;
+  }
+  const t=fmtTime(rem);
+  document.getElementById('timerVal').textContent=t.val;
+  document.getElementById('timerUnit').textContent=t.unit;
+  document.getElementById('timerDesc').textContent='~'+t.desc+' remaining';
+  document.getElementById('timerSub').textContent='Expires '+fmtDate(expiresAt);
+  const pct=rem/expiry;
+  document.getElementById('timerCircle').style.strokeDashoffset=263.89*(1-pct);
+  document.getElementById('timerCircle').className='prog'+(pct<0.1?' crit':pct<0.25?' warn':'');
+}
+
+function destroyCurrentDrop() {
+  if(!confirm('Remove index entry? The QR image will still exist but is untracked.')) return;
+  saveIdx(loadIdx().filter(d=>d.id!==currentDropId));
+  clearInterval(timerTmr); currentDropId=null;
+  resetCompose(); updateStats(); toast('Drop removed from index.','ok');
+}
+
+function resetCompose() {
+  document.getElementById('preCreate').style.display='block';
+  document.getElementById('postCreate').style.display='none';
+  ['msgInput','pinInput','labelInput'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('charHint').textContent='0 / 300';
+  document.getElementById('strengthRow').style.display='none';
+  clearInterval(timerTmr);
+}
+
+// QR export
+function getQRCanvas() {
+  const c=document.querySelector('#qrcode canvas'); if(c) return c;
+  const img=document.querySelector('#qrcode img');
+  if(img){const c2=document.createElement('canvas');c2.width=220;c2.height=220;c2.getContext('2d').drawImage(img,0,0,220,220);return c2;}
+  return null;
+}
+
+function downloadQR() {
+  const src=getQRCanvas(); if(!src){toast('QR not ready.','err');return;}
+  const id=document.getElementById('qrDropId').textContent;
+  const pad=24, lh=40, out=document.createElement('canvas');
+  out.width=src.width+pad*2; out.height=src.height+pad*2+lh;
+  const ctx=out.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,out.width,out.height);
+  ctx.drawImage(src,pad,pad);
+  ctx.fillStyle='#0a1628'; ctx.font='bold 12px monospace'; ctx.textAlign='center';
+  ctx.fillText(id,out.width/2,src.height+pad+18);
+  ctx.fillStyle='#6b7a99'; ctx.font='10px sans-serif';
+  ctx.fillText('DropNote · Scan & enter PIN to decrypt',out.width/2,src.height+pad+34);
+  const a=document.createElement('a'); a.download='dropnote-'+id+'.png'; a.href=out.toDataURL('image/png'); a.click();
+  toast('QR saved.','ok');
+}
+
+async function shareQR() {
+  const src=getQRCanvas(); const id=document.getElementById('qrDropId').textContent;
+  if(!src){toast('QR not ready.','err');return;}
+  src.toBlob(async blob=>{
+    const file=new File([blob],'dropnote-'+id+'.png',{type:'image/png'});
+    try {
+      if(navigator.canShare&&navigator.canShare({files:[file]})) await navigator.share({title:'DropNote Secret Message',text:'Scan in DropNote & enter PIN. ID: '+id,files:[file]});
+      else await navigator.share({title:'DropNote Secret Message',text:'Scan in DropNote & enter PIN. ID: '+id});
+    } catch(e){if(e.name!=='AbortError')toast('Share failed.','err');}
+  });
+}
+
+function copyDropId() {
+  const id=document.getElementById('qrDropId').textContent;
+  navigator.clipboard.writeText(id).then(()=>{
+    const btn=document.getElementById('copyBtn');
+    btn.classList.add('copied'); btn.textContent='✓ Copied!';
+    toast('ID copied.','ok');
+    setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML='⊞ Copy ID';},2000);
+  }).catch(()=>toast('Copy failed.','err'));
+}
+
+// ══════════════════════════════════════
+// SCAN & REVEAL
+// ══════════════════════════════════════
+let scanStream=null, scanIval=null, pendingPayload=null, destructIval=null;
+
+async function startScanner() {
+  try {
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
+    const video=document.getElementById('scanVideo');
+    video.srcObject=scanStream;
+    document.getElementById('scanPrompt').style.display='none';
+    document.getElementById('scannerWrap').style.display='block';
+    document.getElementById('scannerHint').style.display='block';
+    video.onloadedmetadata=()=>{video.play();scanIval=setInterval(()=>scanFrame(video),200);};
+  } catch(e){toast('Camera access denied.','err');}
+}
+
+function scanFrame(video) {
+  const canvas=document.getElementById('scanCanvas'), ctx=canvas.getContext('2d');
+  if(video.readyState!==video.HAVE_ENOUGH_DATA) return;
+  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+  ctx.drawImage(video,0,0);
+  const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+  if(code&&code.data){stopScanner();processScanned(code.data.trim());}
+}
+
+function stopScanner() {
+  clearInterval(scanIval);
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}
+  const w=document.getElementById('scannerWrap');if(w)w.style.display='none';
+  const h=document.getElementById('scannerHint');if(h)h.style.display='none';
+  const p=document.getElementById('scanPrompt');if(p)p.style.display='block';
+}
+
+function handlePaste() {
+  const v=document.getElementById('pasteInput').value.trim();
+  if(!v){toast('Paste a DNv1: payload first.','err');return;}
+  processScanned(v);
+}
+
+function hideAllScanCards() {
+  ['pinGateCard','revealCard','expiredCard'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('pinError').style.display='none';
+  document.getElementById('pinUnlockInput').value='';
+}
+
+function processScanned(raw) {
+  const parsed=parsePayload(raw);
+  hideAllScanCards();
+
+  if(!parsed) {
+    document.getElementById('expiredReason').textContent='This QR is not a valid DropNote payload (expected DNv1: format).';
+    document.getElementById('expiredCard').style.display='block';
+    setStatus('Invalid QR','sv-err'); return;
+  }
+
+  document.getElementById('scanId').textContent=parsed.id;
+  document.getElementById('scanExpires').textContent=fmtDate(parsed.expiresAt);
+  document.getElementById('scanAlgo').textContent='AES-256-GCM · PBKDF2';
+
+  if(Date.now()>parsed.expiresAt) {
+    document.getElementById('expiredReason').textContent='This drop expired on '+fmtDate(parsed.expiresAt)+'. It cannot be decrypted.';
+    document.getElementById('expiredCard').style.display='block';
+    setStatus('Expired','sv-err');
+    document.getElementById('scanTimeLeft').textContent='Expired';
+    return;
+  }
+
+  const rem=parsed.expiresAt-Date.now(), t=fmtTime(rem);
+  document.getElementById('scanTimeLeft').textContent=t.desc+' remaining';
+  document.getElementById('pinGateMeta').textContent=parsed.id+' · '+t.desc+' remaining · AES-256-GCM';
+  setStatus('Locked · awaiting PIN','sv-warn');
+  pendingPayload=parsed;
+  document.getElementById('scanCard').style.display='none';
+  document.getElementById('pinGateCard').style.display='block';
+  setTimeout(()=>document.getElementById('pinUnlockInput').focus(),100);
+}
+
+function setStatus(text, cls) {
+  const el=document.getElementById('scanStatus');
+  el.textContent=text; el.className=cls;
+}
+
+async function unlockDrop() {
+  if(!pendingPayload) return;
+  const pin=document.getElementById('pinUnlockInput').value;
+  if(!pin){toast('Enter the PIN.','err');return;}
+
+  const btn=document.getElementById('unlockBtn');
+  btn.disabled=true; btn.innerHTML='⏳ Decrypting…';
+  const msg=await decryptMsg(pendingPayload,pin);
+  btn.disabled=false; btn.innerHTML='🔓 Decrypt Message';
+
+  if(msg===null) {
+    document.getElementById('pinError').style.display='block';
+    document.getElementById('pinUnlockInput').value='';
+    document.getElementById('pinUnlockInput').focus();
+    toast('Wrong PIN.','err'); return;
+  }
+
+  const rem=pendingPayload.expiresAt-Date.now(), t=fmtTime(rem);
+  setStatus('Decrypted','sv-ok');
+  document.getElementById('revealedMsg').textContent=msg;
+  document.getElementById('revealMeta').textContent=pendingPayload.id+' · '+t.desc+' remaining';
+  document.getElementById('pinGateCard').style.display='none';
+  document.getElementById('revealCard').style.display='block';
+
+  // Destruct bar — visual countdown
+  const total=pendingPayload.expiresAt-pendingPayload.createdAt||(pendingPayload.expiresAt-Date.now());
+  document.getElementById('destructFill').style.width=(rem/total*100)+'%';
+  clearInterval(destructIval);
+  destructIval=setInterval(()=>{
+    const r=pendingPayload.expiresAt-Date.now();
+    if(r<=0){clearInterval(destructIval);document.getElementById('destructFill').style.width='0%';}
+    else document.getElementById('destructFill').style.width=(r/total*100)+'%';
+  },1000);
+}
+
+function destroyRevealed() {
+  clearInterval(destructIval); pendingPayload=null;
+  document.getElementById('revealCard').style.display='none';
+  document.getElementById('expiredCard').style.display='block';
+  document.getElementById('expiredReason').textContent='Message cleared by recipient.';
+  setStatus('Cleared','sv-err');
+  toast('Message cleared.','ok');
+}
+
+function resetScan() {
+  stopScanner(); clearInterval(destructIval); pendingPayload=null;
+  document.getElementById('scanCard').style.display='block';
+  hideAllScanCards();
+  document.getElementById('pasteInput').value='';
+  setStatus('Awaiting scan','sv-accent');
+  ['scanId','scanExpires','scanTimeLeft','scanAlgo'].forEach(id=>document.getElementById(id).textContent='—');
+}
+
+// ══════════════════════════════════════
+// VAULT
+// ══════════════════════════════════════
+function renderVault() {
+  pruneIdx();
+  const idx=loadIdx();
+  const active=idx.filter(d=>Date.now()<d.expiresAt).length;
+  const total=parseInt(sessionStorage.getItem('dn_total')||'0');
+  document.getElementById('vaultActive').textContent=active;
+  document.getElementById('vaultExpiredCount').textContent=Math.max(0,total-active);
+  document.getElementById('vaultTotal').textContent=total;
+  document.getElementById('vaultStorage').textContent=fmtBytes(JSON.stringify(idx).length);
+  const list=document.getElementById('vaultList');
+  if(!idx.length){
+    list.innerHTML='<div class="vault-empty"><div class="vault-empty-icon">📭</div><div>No drops yet.</div><div style="font-size:11px;margin-top:4px">Compose a message to get started.</div></div>';
+    return;
+  }
+  list.innerHTML=idx.map(d=>{
+    const rem=d.expiresAt-Date.now(), alive=rem>0, t=fmtTime(rem);
+    return `<div class="vault-item">
+      <div class="vault-item-icon">${alive?'📩':'💨'}</div>
+      <div class="vault-item-info">
+        <div class="vault-item-id">${d.id}</div>
+        <div class="vault-item-meta">${d.label||'No label'} · ${fmtBytes(d.payloadSize||0)} · ${fmtDate(d.createdAt)}</div>
+      </div>
+      <div class="vault-item-right">
+        <span class="time-left ${t.cls}">${alive?t.desc:'Expired'}</span>
+        <span style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">${alive?'active':'dead'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function purgeExpired(){pruneIdx();renderVault();updateStats();toast('Expired entries purged.','ok');}
+function destroyAll(){
+  if(!confirm('Clear all index entries? QR images are unaffected.')) return;
+  saveIdx([]); renderVault(); updateStats(); toast('Index cleared.','ok');
+}
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+pruneIdx();
+updateStats();
+setInterval(()=>{pruneIdx();updateStats();},60000);
+</script>
+</body>
+</html>
