@@ -613,16 +613,24 @@ async function decryptMsg(enc, pin) {
 // ══════════════════════════════════════
 // PAYLOAD FORMAT
 // DNv1:[id]:[expiresAt]:[salt]:[iv]:[ct]
+// Use indexOf-based parsing so colons inside fields never break it
 // ══════════════════════════════════════
 function buildPayload(id, expiresAt, enc) {
-  return `DNv1:${id}:${expiresAt}:${enc.salt}:${enc.iv}:${enc.ct}`;
+  // Use | as separator instead of : to avoid any collision issues
+  return `DNv1|${id}|${expiresAt}|${enc.salt}|${enc.iv}|${enc.ct}`;
 }
 
 function parsePayload(raw) {
-  if (!raw || !raw.startsWith('DNv1:')) return null;
-  const p = raw.split(':');
+  if (!raw) return null;
+  // Sanitise — strip whitespace/newlines that camera or clipboard can inject
+  const s = raw.trim().replace(/\s+/g,'');
+  if (!s.startsWith('DNv1|') && !s.startsWith('DNv1:')) return null;
+  const sep = s.startsWith('DNv1|') ? '|' : ':';
+  const p = s.split(sep);
   if (p.length !== 6) return null;
-  return {id:p[1], expiresAt:parseInt(p[2]), salt:p[3], iv:p[4], ct:p[5]};
+  const expiresAt = parseInt(p[2]);
+  if (isNaN(expiresAt)) return null;
+  return {id:p[1], expiresAt, salt:p[3], iv:p[4], ct:p[5]};
 }
 
 // ══════════════════════════════════════
@@ -881,24 +889,54 @@ let scanStream=null, scanIval=null, pendingPayload=null, destructIval=null;
 
 async function startScanner() {
   try {
-    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
-    const video=document.getElementById('scanVideo');
-    video.srcObject=scanStream;
-    document.getElementById('scanPrompt').style.display='none';
-    document.getElementById('scannerWrap').style.display='block';
-    document.getElementById('scannerHint').style.display='block';
-    video.onloadedmetadata=()=>{video.play();scanIval=setInterval(()=>scanFrame(video),200);};
-  } catch(e){toast('Camera access denied.','err');}
+    // Request highest available resolution for better QR detection
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }
+    });
+    const video = document.getElementById('scanVideo');
+    video.srcObject = scanStream;
+    document.getElementById('scanPrompt').style.display = 'none';
+    document.getElementById('scannerWrap').style.display = 'block';
+    document.getElementById('scannerHint').style.display = 'block';
+    document.getElementById('scannerHint').textContent = 'Align the QR within the frame…';
+
+    // Both onloadedmetadata and onloadeddata for cross-browser reliability
+    const startScan = () => {
+      if (scanIval) return; // don't double-start
+      video.play().catch(()=>{});
+      scanIval = setInterval(() => scanFrame(video), 150);
+    };
+    video.onloadedmetadata = startScan;
+    video.onloadeddata = startScan;
+    // Fallback: force start after 1s even if events don't fire
+    setTimeout(startScan, 1000);
+  } catch(e) {
+    toast('Camera access denied or unavailable.', 'err');
+    document.getElementById('scanPrompt').style.display = 'block';
+  }
 }
 
 function scanFrame(video) {
-  const canvas=document.getElementById('scanCanvas'), ctx=canvas.getContext('2d');
-  if(video.readyState!==video.HAVE_ENOUGH_DATA) return;
-  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-  ctx.drawImage(video,0,0);
-  const img=ctx.getImageData(0,0,canvas.width,canvas.height);
-  const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
-  if(code&&code.data){stopScanner();processScanned(code.data.trim());}
+  if (!scanIval) return;
+  const canvas = document.getElementById('scanCanvas'), ctx = canvas.getContext('2d');
+  if (video.readyState < 2) return; // not enough data yet
+  if (video.videoWidth === 0) return;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  // Try normal orientation first, then inverted (handles screens displaying QRs)
+  let code = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
+  if (!code) code = jsQR(img.data, img.width, img.height, {inversionAttempts:'onlyInvert'});
+
+  if (code && code.data) {
+    const raw = code.data.trim();
+    // Show what was scanned in hint so user knows it worked
+    document.getElementById('scannerHint').textContent = 'QR detected — processing…';
+    stopScanner();
+    processScanned(raw);
+  }
 }
 
 function stopScanner() {
@@ -922,13 +960,17 @@ function hideAllScanCards() {
 }
 
 function processScanned(raw) {
-  const parsed=parsePayload(raw);
+  const parsed = parsePayload(raw);
   hideAllScanCards();
 
-  if(!parsed) {
-    document.getElementById('expiredReason').textContent='This QR is not a valid DropNote payload (expected DNv1: format).';
-    document.getElementById('expiredCard').style.display='block';
-    setStatus('Invalid QR','sv-err'); return;
+  if (!parsed) {
+    // Show first 80 chars of what was actually read — helps diagnose wrong QR
+    const preview = raw.length > 80 ? raw.substring(0,80)+'…' : raw;
+    document.getElementById('expiredReason').textContent =
+      'Not a valid DropNote QR. Read: "' + preview + '"';
+    document.getElementById('expiredCard').style.display = 'block';
+    setStatus('Invalid QR','sv-err');
+    return;
   }
 
   document.getElementById('scanId').textContent=parsed.id;
