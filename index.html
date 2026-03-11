@@ -611,12 +611,18 @@
 // ══════════════════════════════════════
 const ROUNDS = 10000; // enough for short-lived drops; 100K caused mobile timeouts
 
-const b64e = b => btoa(String.fromCharCode(...b))
-  .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+const b64e = b => {
+  let s = '';
+  for (let i=0; i<b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+};
 const b64d = s => {
   const t = s.replace(/-/g,'+').replace(/_/g,'/');
   const p = t.length%4 ? t+'='.repeat(4-t.length%4) : t;
-  return new Uint8Array([...atob(p)].map(c=>c.charCodeAt(0)));
+  const bin = atob(p);
+  const out = new Uint8Array(bin.length);
+  for (let i=0; i<bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 };
 
 async function deriveKey(pin, saltB64) {
