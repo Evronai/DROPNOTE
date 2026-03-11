@@ -407,8 +407,12 @@
               <div class="qr-size-note" id="qrSizeNote"></div>
               <div class="qr-export-btns">
                 <button class="qr-export-btn" onclick="downloadQR()">↓ Save PNG</button>
-                <button class="qr-export-btn share-qr" id="shareBtn" style="display:none" onclick="shareQR()">↗ Share</button>
-                <button class="qr-export-btn" id="copyBtn" onclick="copyDropId()">⊞ Copy ID</button>
+                <button class="qr-export-btn share-qr" id="shareBtn" onclick="shareQR()">↗ Share</button>
+                <button class="qr-export-btn" id="copyBtn" onclick="copyPayload()">⊞ Copy Link</button>
+              </div>
+              <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.6;text-align:center">
+                <strong style="color:var(--navy)">To send:</strong> tap ↗ Share to send via WhatsApp, iMessage, etc.<br>
+                Recipient opens DropNote → Scan &amp; Reveal → pastes the text → enters PIN.
               </div>
             </div>
           </div>
@@ -904,25 +908,47 @@ function downloadQR() {
 }
 
 async function shareQR() {
-  const src=getQRCanvas(); const id=document.getElementById('qrDropId').textContent;
-  if(!src){toast('QR not ready.','err');return;}
-  src.toBlob(async blob=>{
-    const file=new File([blob],'dropnote-'+id+'.png',{type:'image/png'});
-    try {
-      if(navigator.canShare&&navigator.canShare({files:[file]})) await navigator.share({title:'DropNote Secret Message',text:'Scan in DropNote & enter PIN. ID: '+id,files:[file]});
-      else await navigator.share({title:'DropNote Secret Message',text:'Scan in DropNote & enter PIN. ID: '+id});
-    } catch(e){if(e.name!=='AbortError')toast('Share failed.','err');}
-  });
+  // Share the raw payload — recipient pastes it into DropNote's scan page
+  const shareText = `DropNote secret message — open DropNote, go to Scan & Reveal, paste this:\n\n${currentPayload}`;
+  
+  if (navigator.share) {
+    // Try sharing QR image + text together
+    const src = getQRCanvas();
+    if (src && navigator.canShare) {
+      src.toBlob(async blob => {
+        const file = new File([blob], 'dropnote-qr.png', {type:'image/png'});
+        try {
+          if (navigator.canShare({files:[file]})) {
+            await navigator.share({
+              title: 'DropNote Secret Message',
+              text: shareText,
+              files: [file]
+            });
+            return;
+          }
+        } catch(e) {}
+        // Fallback: text only
+        try { await navigator.share({title:'DropNote Secret Message', text:shareText}); }
+        catch(e) { if(e.name!=='AbortError') copyPayload(); }
+      });
+    } else {
+      try { await navigator.share({title:'DropNote Secret Message', text:shareText}); }
+      catch(e) { if(e.name!=='AbortError') copyPayload(); }
+    }
+  } else {
+    // No Web Share API — just copy to clipboard
+    copyPayload();
+  }
 }
 
-function copyDropId() {
-  const id=document.getElementById('qrDropId').textContent;
-  navigator.clipboard.writeText(id).then(()=>{
-    const btn=document.getElementById('copyBtn');
-    btn.classList.add('copied'); btn.textContent='✓ Copied!';
-    toast('ID copied.','ok');
-    setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML='⊞ Copy ID';},2000);
-  }).catch(()=>toast('Copy failed.','err'));
+function copyPayload() {
+  if (!currentPayload) { toast('Generate a drop first.', 'err'); return; }
+  navigator.clipboard.writeText(currentPayload).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.classList.add('copied'); btn.textContent = '✓ Copied!';
+    toast('Payload copied — paste it into DropNote Scan page.', 'ok');
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '⊞ Copy Link'; }, 2500);
+  }).catch(() => toast('Copy failed.', 'err'));
 }
 
 // ══════════════════════════════════════
