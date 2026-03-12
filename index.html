@@ -112,7 +112,7 @@
 
   .qr-wrap{text-align:center;padding:24px 20px 20px;}
   .qr-box{display:inline-block;padding:14px;background:var(--white);border:1px solid var(--border2);margin-bottom:14px;}
-  #qrcode canvas,#qrcode img{display:block;}
+  #qrcode canvas,#qrcode img{display:block;width:240px!important;height:240px!important;}
   .qr-id{font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:var(--navy);letter-spacing:1.5px;margin-bottom:4px;}
   .qr-meta{font-size:11px;color:var(--muted);}
   .qr-meta strong{color:var(--navy);}
@@ -259,7 +259,6 @@
     footer{display:none;}
     .bottom-nav{display:block;}
     .mobile-hide{display:none!important;}
-    #qrcode canvas,#qrcode img{width:220px!important;height:220px!important;}
     .message-display{font-size:16px;padding:20px;}
   }
 </style>
@@ -827,9 +826,9 @@ function renderQR(id, expiresAt, expiry, payload, bytes, sizeOk) {
   document.getElementById('qrcode').innerHTML='';
 
   new QRCode(document.getElementById('qrcode'), {
-    text:payload, width:260, height:260,
+    text:payload, width:400, height:400,
     colorDark:'#000000', colorLight:'#ffffff',
-    correctLevel: QRCode.CorrectLevel.L  // lowest EC = smallest/most scannable QR
+    correctLevel: QRCode.CorrectLevel.L
   });
 
   document.getElementById('qrDropId').textContent=id;
@@ -1039,33 +1038,53 @@ function stopScanner() {
   const p=document.getElementById('scanPrompt');  if(p) p.style.display='block';
 }
 
-function handleQRUpload(input) {
+async function handleQRUpload(input) {
   const file = input.files[0];
   if (!file) return;
+  input.value = '';
+  toast('Reading image…');
+
+  try {
+    // Path 1: BarcodeDetector on ImageBitmap (most reliable)
+    if (barcodeDetector) {
+      const bitmap = await createImageBitmap(file);
+      const codes = await barcodeDetector.detect(bitmap);
+      bitmap.close();
+      if (codes.length > 0) {
+        toast('QR detected!', 'ok');
+        processScanned(codes[0].rawValue.trim());
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // Path 2: jsQR on a scaled-up canvas (scale to 1000px for better detection)
   const reader = new FileReader();
   reader.onload = function(e) {
     const img = new Image();
     img.onload = function() {
+      // Scale up to at least 1000px on longest side for jsQR
+      const scale = Math.max(1, 1000 / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
       const canvas = document.createElement('canvas');
-      canvas.width = img.width; canvas.height = img.height;
+      canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      // Try both orientations
-      let code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'dontInvert'});
-      if (!code) code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'onlyInvert'});
+      // Disable smoothing for crisper QR pixels
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      let code = jsQR(imageData.data, w, h, {inversionAttempts:'attemptBoth'});
       if (code && code.data) {
-        toast('QR detected in image!', 'ok');
+        toast('QR detected!', 'ok');
         processScanned(code.data.trim());
       } else {
-        toast('No QR code found in image. Try a clearer photo.', 'err');
+        toast('No QR found — try a sharper image or use the camera.', 'err');
       }
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
-  // Reset so same file can be re-uploaded
-  input.value = '';
 }
 
 function handlePaste() {
